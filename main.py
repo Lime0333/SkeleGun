@@ -46,7 +46,7 @@ def kulaUpdate(i, move=0.1):
     if i==0 and (ball.y>3 or ball.x>4 or ball.y<-3 or ball.x<-4):
         lista=["circle", "sphere", "cube", "quad"]
         textureList = ["freaky.png", "freaky2.png", "freaky3.png", "freaky4.png", "pingwin.png", "freaky6.png", "freaky10.png", "freaky8.png", "freaky9.png"]
-        kule.append(Entity(model=random.choice(lista), color=color.rgb(random.random(),random.random(),random.random()), texture=random.choice(textureList)))
+        kule.append(Entity(model=random.choice(lista), color=color.rgb(random.random(),random.random(),random.random()), texture=random.choice(textureList), collider="box"))
         got = False
         for m in range(10):
             kule[-1].y=random.uniform(-2.99999,2.99999)
@@ -77,11 +77,13 @@ def kulaUpdate(i, move=0.1):
     if ball.x>4 or ball.x<-4:
         kuleKierunki[i][0]=0-kuleKierunki[i][0] 
 
-    collider = ifCollidesList(ball,kule)
+    #collider = ifCollidesList(ball,kule)
 
-    if collider!=False:
-        diffrenceX=abs(collider.x-ball.x)
-        diffrenceY=abs(collider.y-ball.y)
+    colision = ball.intersects()
+
+    if colision.hit:
+        diffrenceX=abs(colision.entity.x-ball.x)
+        diffrenceY=abs(colision.entity.y-ball.y)
         if(diffrenceX>diffrenceY):
             kuleKierunki[i][0]=0-kuleKierunki[i][0]
         else:
@@ -145,7 +147,7 @@ camMoveZup=True;
 #test=Entity(model="circle")
 #test.
 
-kule=[Entity(model="cube", color=color.red, texture="freaky.png"), Entity(model="circle", color=color.blue, texture="pingwin.png")]
+kule=[Entity(model="cube", color=color.red, texture="freaky.png", collider="box"), Entity(model="sphere", texture="pingwin.png", collider="box")]
 kuleKierunki=[[1,1],[-1.25,-0.75]]
 
 
