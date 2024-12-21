@@ -30,8 +30,18 @@ def kulaUpdate(i, move=0.1):
     ball.rotation_z+=move*50
     ball.rotation_y+=move*50
 
-    ball.x+=move*kuleKierunki[i][0]
-    ball.y+=move*kuleKierunki[i][1]
+    if i!=0:
+        ball.x+=move*kuleKierunki[i][0]
+        ball.y+=move*kuleKierunki[i][1]
+    else:
+        if held_keys['w']:
+            ball.y+=move
+        elif held_keys['s']:
+            ball.y-=move
+        if held_keys['a']:
+            ball.x-=move
+        elif held_keys['d']:
+            ball.x+=move
 
     if i==0 and (ball.y>3 or ball.x>4 or ball.y<-3 or ball.x<-4):
         lista=["circle", "sphere", "cube", "quad"]
@@ -117,11 +127,11 @@ def update():
     if camMoveY>10 or camMoveY<-10:
         camMoveY=0
 
-    camVec = camera.position_getter()
+    #camVec = camera.position_getter()
     #camX = camVec.getX() + camMoveX
     #camY = camVec.getY() + camMoveY
 
-    camera.position = (0, 0, -25+camMoveZ)
+    #camera.position = (0, 0, -25+camMoveZ)
 
 app=Ursina()
 
