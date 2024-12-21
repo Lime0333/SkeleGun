@@ -26,18 +26,18 @@ def kulaUpdate(i, move=0.1):
     global kule
     global kuleKierunki
     ball = kule[i]
-    #ball.rotation_x+=move*50
-    #ball.rotation_z+=move*50
-    #ball.rotation_y+=move*50
+    ball.rotation_x+=move*50
+    ball.rotation_z+=move*50
+    ball.rotation_y+=move*50
 
     ball.x+=move*kuleKierunki[i][0]
     ball.y+=move*kuleKierunki[i][1]
 
     if i==0 and (ball.y>3 or ball.x>4 or ball.y<-3 or ball.x<-4):
         lista=["circle", "sphere", "cube", "quad"]
-        kule.append(Entity(model=random.choice(lista), color=color.rgb(255,255,255)))
+        kule.append(Entity(model=random.choice(lista), color=color.rgb(random.random(),random.random(),random.random())))
         got = False
-        for i in range(10):
+        for m in range(10):
             kule[-1].y=random.uniform(-2.99999,2.99999)
             kule[-1].x=random.uniform(-3.99999,3.99999)
             if ifCollidesList(kule[-1],kule)==False:
@@ -85,21 +85,51 @@ def update():
     global speed
     global acceleration
     global kule
+    global camMoveX
+    global camMoveY
+    global camMoveZ
+    global camMoveZup
 
     r=random.random()
     g=random.random()
     b=random.random()
-    #kule[0].color=color.rgb(r,g,b)
+    kule[0].color=color.rgb(r,g,b)
 
     for i in range(len(kule)):
         kulaUpdate(i, time.dt*speed)
+
+    camMoveX+=time.dt*(1-random.random()*2)*speed
+    camMoveY+=time.dt*(1-random.random()*2)*speed
+
+    if camMoveZup:
+        camMoveZ+=time.dt*speed*9
+    else:
+        camMoveZ-=time.dt*speed*9
+    
+    if camMoveZ>10:
+        camMoveZup=False
+    elif camMoveZ<-10:
+        camMoveZup=True
+
+    if camMoveX>10 or camMoveX<-10:
+        camMoveX=0
+    if camMoveY>10 or camMoveY<-10:
+        camMoveY=0
+
+    camVec = camera.position_getter()
+    #camX = camVec.getX() + camMoveX
+    #camY = camVec.getY() + camMoveY
+
+    camera.position = (camMoveX, camMoveY, -25+camMoveZ)
 
 app=Ursina()
 
 speed=3
 acceleration = 1.001
-cooldown=0
-cooldownMax=50
+camMoveX = 0
+camMoveY = 0
+camMoveZ = 0
+camMoveZup=True;
 
 #test=Entity(model="circle")
 #test.
