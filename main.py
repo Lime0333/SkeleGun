@@ -12,20 +12,57 @@ def resumeGame():
 def skelegun():
     global background, game, menu
 
+    game.waves = [
+        [
+            {'name': 'necro', 'spawn': (2,3.5)},
+            {'name': 'monster2', 'spawn': (2,2)}
+        ],
+        [
+            {'name': 'monster1', 'spawn': (-2,-3.5)},
+            {'name': 'monster2', 'spawn': (-1.5,2)}
+        ],
+        [
+            {'name': 'monster1', 'spawn': (-1.5,2)},
+            {'name': 'monster2', 'spawn': (0,-3)},
+            {'name': 'monster2', 'spawn': (-4,3)}
+            ]
+    ]
+    game.wave=0
+
     class Monster(Sprite):
-        def __init__(self, id, x, y):
+        def necromancer(self):
+            self.specialCooldown+=1
+            if self.specialCooldown>=self.specialDelay:
+                self.specialCooldown=0
+                x = random.uniform(0.500, 1.000)
+                y = random.uniform(0.500, 1.000)
+                if random.randint(1,2) == 1:
+                    x = self.x + 0.5 + x
+                else:
+                    x = self.x - 0.5 - x
+                if random.randint(1,2) == 1:
+                    y = self.y + 0.5 + y
+                else:
+                    y = self.y - 0.5 - y
+                game.monsters.append(Monster('monster2', (x,y)))
+                
+
+        def __init__(self, name, position, id=len(game.monsters)-1):
             super().__init__()
             self.data = {
-                'monster1' : {'health': 2, 'damage': 1, 'hitDelay': 100, 'animDelay': 4, 'speed': 3, 'textures': 'graphics/enemies/', 'animLength': 6}
+                'monster1' : {'health': 2, 'damage': 1, 'hitDelay': 100, 'animDelay': 4, 'speed': 3, 'animLength': 6, 'scale': 1},
+                'monster2' : {'health': 1, 'damage': 1, 'hitDelay': 100, 'animDelay': 4, 'speed': 2, 'animLength': 8, 'scale': 0.75},
+                'necro' : {'health': 4, 'damage': 1, 'hitDelay': 100, 'animDelay': 4, 'speed': 1.5, 'animLength': 10, 'scale': 1, 'special': self.necromancer, 'specialDelay': 200}
             }
             
             self.parent=game
             self.id = id
-            self.name = 'monster1'
-            self.x = x
-            self.y = y
+            self.destroyed=False
+            self.name = name
+            self.x, self.y = position
+            self.scale = self.data[self.name]['scale']
             self.collider='box'
-            self.texture = 'graphics/monsters/monster1/1.png'
+            self.texture = "graphics/monsters/" + self.name + "/1.png"
 
             self.health = self.data[self.name]['health']
 
@@ -34,20 +71,28 @@ def skelegun():
 
             self.cooldown=self.data[self.name]['hitDelay']
 
+            if 'special' in self.data[self.name]:
+                self.specialCooldown = 0
+                self.specialDelay = self.data[self.name]['specialDelay']
+                match self.data[self.name]['special']:
+                    case self.necromancer:
+                        pass
+
         def hit(self,damage):
             print("lubudubu", self.health, damage)
             self.health -= damage
             if self.health <= 0:
-                for i in range(self.id+1, len(game.monsters)):
-                    game.monsters[i].id-=1
+                self.destroyed = True
                 destroy(self)
-                game.monsters.pop(self.id)
+                game.monsters = [monster for monster in game.monsters if not monster.destroyed]
+                print(game.monsters)
 
 
         def playerUpdate(self, player):
             self.animCooldown+=1
             self.cooldown+=1
-
+            if not self.name in self.data:
+                print(self.name)
             if self.animCooldown > self.data[self.name]['animDelay']:
                 self.animCooldown = 0
                 self.animStage += 1
@@ -82,6 +127,10 @@ def skelegun():
             if hitInfo.hit and hitInfo.entity == player and self.data[self.name]['hitDelay'] < self.cooldown:
                 self.cooldown = 0
                 player.hit()
+            
+            if 'special' in self.data[self.name]:
+                spec = self.data[self.name]['special']
+                spec()
 
 
     class Player(Sprite):
@@ -180,12 +229,14 @@ def skelegun():
             else:
                 self.animation='idle'
 
-            if self.clickCooldown > self.clickDelay:
+            if (held_keys['e'] or held_keys['left mouse']) and self.clickCooldown > self.clickDelay:
                 self.clickCooldown = 0
                 if held_keys['left mouse']:
                     self.shoot()
                 if held_keys['e']:
-                    game.monsters.append(Monster(len(game.monsters),2,3))
+                    for enemy in game.waves[game.wave]:
+                        game.monsters.append(Monster(enemy['name'], enemy['spawn']))
+                    game.wave+=1
 
             if held_keys['w']:
                 self.y+=time.dt*self.speed
