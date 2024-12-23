@@ -122,7 +122,7 @@ def skelegun():
             self.weapon.bullets=[]
 
             self.clickCooldown = 0
-            self.clickDelay = 5
+            self.clickDelay = 50
         
         def ensureFlip(self, do):
             if do:
