@@ -1,11 +1,14 @@
 import os
 #os.system("pip install ursina")
+#os.system("pip install pynput")
+import pynput
 from ursina import *
 import random
 
 def resumeGame():
-    global background, game, menu
+    global background, game, menu, intro
     game.enabled=True
+    intro.enabled=False
     menu.enabled=False
     background.texture="graphics/backgrounds/stage.png"
 
@@ -14,7 +17,7 @@ def skelegun():
 
     game.waves = [
         [
-            {'name': 'necro', 'spawn': (2,3.5)},
+            {'name': 'crow', 'spawn': (2,3.5)},
             {'name': 'monster2', 'spawn': (2,2)}
         ],
         [
@@ -25,9 +28,31 @@ def skelegun():
             {'name': 'monster1', 'spawn': (-1.5,2)},
             {'name': 'monster2', 'spawn': (0,-3)},
             {'name': 'monster2', 'spawn': (-4,3)}
-            ]
+        ],
+        [
+            {'name': 'monster1', 'spawn': (-1.5,2)},
+            {'name': 'monster2', 'spawn': (0,-3)},
+            {'name': 'necro', 'spawn': (-4,3)}
+        ],
+        [
+            {'name': 'monster1', 'spawn': (-1.5,2)},
+            {'name': 'monster2', 'spawn': (0,-3)},
+            {'name': 'necro', 'spawn': (-4,3)},
+            {'name': 'crow', 'spawn': (-4,-3)},
+            {'name': 'crow', 'spawn': (-4,-3.5)},
+            {'name': 'crow', 'spawn': (-4,-3.2)}
+        ],
     ]
     game.wave=0
+
+    class Item(Sprite):
+        def __init__(self, name, position):
+            
+            self.x, self.y = position
+            self.name = name
+            self.texture = "graphics/items/" + name + ".png"
+
+
 
     class Monster(Sprite):
         def necromancer(self):
@@ -45,14 +70,41 @@ def skelegun():
                 else:
                     y = self.y - 0.5 - y
                 game.monsters.append(Monster('monster2', (x,y)))
+
+        def crow(self):
+            for i in self.bullets:
+                i.x += time.dt * i.delta_x
+                i.y += time.dt * i.delta_y
+                hitInfo = i.intersects()
+                hit=False
+                if hitInfo.hit and hitInfo.entity == game.player:
+                    game.player.hit(self.data[self.name]['damage'])
+                    hit=True
+                    break
+                if hit or i.x > window.bottom_right.x*8 or i.x < window.top_left.x*8 or i.y < window.bottom_right.y*8 or i.y > window.top_left.y*8:
+                    destroy(i)
+                    self.bullets.remove(i)
+
+            self.specialCooldown+=1
+            if self.specialCooldown>=self.specialDelay:
+                self.specialCooldown=0
+
+                x, y = self.x+10, self.y+10
+                pX,pY = game.player.x+10, game.player.y+10
+                angle=math.degrees(math.atan2(pX-x, pY-y))
+                shootingAngle = -angle+90
+                self.bullets.append(Sprite(texture="graphics/monsters/crow/stone.png", scale=5, x=self.x, y=self.y, parent=game, delta_x = self.bulletSpeed * math.cos(math.radians(shootingAngle)), delta_y = self.bulletSpeed * math.sin(math.radians(shootingAngle)), collider="box"))
+
+
                 
 
         def __init__(self, name, position, id=len(game.monsters)-1):
             super().__init__()
             self.data = {
-                'monster1' : {'health': 2, 'damage': 1, 'hitDelay': 100, 'animDelay': 4, 'speed': 3, 'animLength': 6, 'scale': 1},
-                'monster2' : {'health': 1, 'damage': 1, 'hitDelay': 100, 'animDelay': 4, 'speed': 2, 'animLength': 8, 'scale': 0.75},
-                'necro' : {'health': 4, 'damage': 1, 'hitDelay': 100, 'animDelay': 4, 'speed': 1.5, 'animLength': 10, 'scale': 1, 'special': self.necromancer, 'specialDelay': 200}
+                'monster1' : {'health': 2, 'damage': 1, 'hitDelay': 100, 'animDelay': 4, 'speed': 3, 'animLength': 6, 'scale': 1, 'ratio':  18/23,'shortDistance': True},
+                'monster2' : {'health': 1, 'damage': 1, 'hitDelay': 100, 'animDelay': 4, 'speed': 2, 'animLength': 8, 'scale': 0.75, 'ratio':  16/15,'shortDistance': True},
+                'necro' : {'health': 4, 'damage': 1, 'hitDelay': 100, 'animDelay': 4, 'speed': 1.5, 'animLength': 10, 'scale': 1, 'ratio':  23/24,'special': self.necromancer, 'specialDelay': 200, 'shortDistance': True},
+                'crow' : {'health': 2, 'damage': 1, 'hitDelay': 100, 'animDelay': 4, 'speed': 1.5, 'animLength': 4, 'scale': .75, 'ratio':  14/17,'special': self.crow, 'specialDelay': 200, 'shortDistance': False}
             }
             
             self.parent=game
@@ -60,7 +112,7 @@ def skelegun():
             self.destroyed=False
             self.name = name
             self.x, self.y = position
-            self.scale = self.data[self.name]['scale']
+            self.scale = (self.data[self.name]['scale'], self.data[self.name]['scale'] / self.data[self.name]['ratio'])
             self.collider='box'
             self.texture = "graphics/monsters/" + self.name + "/1.png"
 
@@ -77,16 +129,24 @@ def skelegun():
                 match self.data[self.name]['special']:
                     case self.necromancer:
                         pass
+                    case self.crow:
+                        self.bullets = []
+                        self.bulletSpeed = 5
 
         def hit(self,damage):
-            print("lubudubu", self.health, damage)
             self.health -= damage
             if self.health <= 0:
+                if 'special' in self.data[self.name]:
+                    match self.data[self.name]['special']:
+                        case self.necromancer:
+                            pass
+                        case self.crow:
+                            for bullet in self.bullets:
+                                destroy(bullet)
+                                self.bullets=[]
                 self.destroyed = True
                 destroy(self)
                 game.monsters = [monster for monster in game.monsters if not monster.destroyed]
-                print(game.monsters)
-
 
         def playerUpdate(self, player):
             self.animCooldown+=1
@@ -123,10 +183,11 @@ def skelegun():
             self.x += time.dt * moveX
             self.y += time.dt * moveY
 
-            hitInfo = self.intersects()
-            if hitInfo.hit and hitInfo.entity == player and self.data[self.name]['hitDelay'] < self.cooldown:
-                self.cooldown = 0
-                player.hit()
+            if self.data[self.name]['shortDistance']:
+                hitInfo = self.intersects()
+                if hitInfo.hit and hitInfo.entity == player and self.data[self.name]['hitDelay'] < self.cooldown:
+                    self.cooldown = 0
+                    player.hit()
             
             if 'special' in self.data[self.name]:
                 spec = self.data[self.name]['special']
@@ -139,7 +200,8 @@ def skelegun():
 
             self.animDelay=4
             self.weaponsData =  {
-                'weapon1': {'bulletSpeed' : 20, 'delay': 50, 'texture': "graphics/weapons/1.png", 'bulletTexture':"graphics/bullets/1.png", 'scale' : 5, 'damage' : 1, 'capacity' : 10, 'reloadTime' : 10, 'spread' : 10}
+                'weapon1': {'bulletSpeed' : 20, 'delay': 50, 'texture': "graphics/weapons/1.png", 'bulletTexture':"graphics/bullets/1.png", 'scale' : .5, 'ratio': 9/6, 'damage' : 1, 'capacity' : 10, 'reloadTime' : 10, 'spread' : 10},
+                'axe': {'bulletSpeed' : 10, 'delay': 100, 'texture': "graphics/weapons/axe.png", 'bulletTexture':"graphics/bullets/1.png", 'scale' : .5, 'ratio': 1, 'damage' : 1, 'capacity' : 10, 'reloadTime' : 10, 'spread' : 10}
             }
 
 
@@ -161,10 +223,15 @@ def skelegun():
             self.flip=""
             self.origin=0
 
+            self.weaponSelection = 0
+            self.weapons = ['weapon1', 'axe']
+
             self.weaponName = 'weapon1'
-            self.weapon=Sprite(texture=self.weaponsData[self.weaponName]['texture'], scale=self.weaponsData[self.weaponName]['scale'])
+            self.weapon = Sprite(scale=(self.weaponsData[self.weapons[self.weaponSelection]]['scale'], self.weaponsData[self.weapons[self.weaponSelection]]['scale'] / self.weaponsData[self.weapons[self.weaponSelection]]['ratio']))
+            self.weapon.texture = self.weaponsData[self.weapons[self.weaponSelection]]['texture']
             self.weapon.origin=self.position
             self.weapon.parent=game
+
 
             self.shootingCooldown=0
 
@@ -188,8 +255,8 @@ def skelegun():
                 self.shootingCooldown=0
                 self.weapon.bullets.append(Sprite(texture=self.weaponsData[self.weaponName]['bulletTexture'], scale=3, parent=game, position=self.weapon.position, origin_x=3, rotation_z=self.shootingAngle, delta_x = self.weaponsData[self.weaponName]['bulletSpeed'] * math.cos(math.radians(self.shootingAngle)), delta_y = self.weaponsData[self.weaponName]['bulletSpeed'] * math.sin(math.radians(self.shootingAngle)), collider="box"))
         
-        def hit(self):
-            self.health-=1
+        def hit(self, damage=1):
+            self.health-=damage
             self.healthBar.texture="graphics/healthBar/" + str(self.health) + ".png"
             if self.health<=0:
                 self.kill()
@@ -198,6 +265,24 @@ def skelegun():
         def kill(self):
             game.enabled=False
             menu.enabled=True
+
+        def weaponSwap(self, i):
+            if i > len(self.weapons)-1:
+                pass
+            if i == -1:
+                self.weaponSelection+=1
+            elif i == -2:
+                self.weaponSelection-=1
+            else:
+                self.weaponSelection = i
+            if self.weaponSelection>len(self.weapons)-1:
+                self.weaponSelection=0
+            elif self.weaponSelection<0:
+                self.weaponSelection=len(self.weapons)-1
+            self.weapon.texture = self.weaponsData[self.weapons[self.weaponSelection]]['texture']
+            print( self.weaponsData[self.weapons[self.weaponSelection]]['scale'])
+            self.weapon.scale =(self.weaponsData[self.weapons[self.weaponSelection]]['scale'], self.weaponsData[self.weapons[self.weaponSelection]]['scale'] / self.weaponsData[self.weapons[self.weaponSelection]]['ratio'])
+            self.weaponName = self.weapons[self.weaponSelection]
 
         def update(self):
             self.weapon.position=self.position
@@ -228,6 +313,8 @@ def skelegun():
                 self.animation='walking'
             else:
                 self.animation='idle'
+
+
 
             if (held_keys['e'] or held_keys['left mouse']) and self.clickCooldown > self.clickDelay:
                 self.clickCooldown = 0
@@ -270,25 +357,38 @@ def skelegun():
 
     windowSizeX,windowSizeY = app.get_size()
     background=Entity(model="quad", texture="graphics/backgrounds/intro.png", scale=(windowSizeX/100,windowSizeY/100), position=(0,0,.1))
-    skeleGunIcon=Sprite(texture="graphics/logo.png", position=(0,2), scale=5, parent=menu)
-
-    startButton = Button(model="quad", texture="graphics/buttons/play.png",scale=(25/10,14/10), radius=0, position=(0, 0),color=color.rgb(1,1,1), tooltip=Tooltip("Start the game"), parent=menu)
-    startButton.on_click=resumeGame 
+    skeleGunIcon=Sprite(texture="graphics/logo.png", position=(0,2), scale=5, parent=intro)
+    startButton = Button(model="quad", texture="graphics/buttons/play.png",scale=(44/20,8/20), radius=0, position=(0, 0),color=color.rgb(1,1,1), parent=intro)
     def buttonHover():
         startButton.color=color.gray
-    startButton.on_mouse_enter=buttonHover
     def buttonUnhover():
         startButton.color=color.white
+    def exit():
+        application.quit()
+        
+    menuItems = [
+        Sprite(texture="graphics/logo.png", position=(0,2), scale=5, parent=menu),
+        Button(model="quad", texture="graphics/buttons/resume.png",scale=(59/30,26/30), radius=0, position=(0, 0),color=color.rgb(1,1,1), tooltip=Tooltip("resume the game"),on_click = resumeGame, parent=menu),
+        Button(model="quad", texture="graphics/buttons/options.png", scale=(59/30,26/30), radius=0, position=(0, -1.5), color=color.rgb(1,1,1), tooltip=Tooltip("options"), on_click = resumeGame, parent=menu),
+        Button(model="quad", texture="graphics/buttons/quit.png", scale=(59/30,26/30), radius=0, position=(0, -3), color=color.rgb(1,1,1), tooltip=Tooltip("quit"), on_click = exit, parent=menu)
+    ]
+    startButton.on_click=resumeGame
     startButton.on_mouse_exit=buttonUnhover
 
-    player=Player(game)
+    game.player=Player(game)
 
 
 app = Ursina()
 game=Entity(enabled=False, monsters=[])
-menu=Entity(enabled=True)
+menu=Entity(enabled=False)
+intro=Entity(enabled=True)
 
 def input(key):
+    #print(key)
+    if key == 'scroll up':
+        game.player.weaponSwap(-1)
+    if key == 'scroll down':
+        game.player.weaponSwap(-2)
     if key=='escape':
         game.enabled=False
         menu.enabled=True
